@@ -39,39 +39,40 @@ public class RepositoryRestController {
     public List<Repository> findRepositoriesByUserName(@PathVariable("user_name") String userName, ObjectMapper mapper,
             RestTemplate restTemplate) {
         String userRepositoriesUrl = "https://api.github.com/users/" + userName + "/repos";
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
         List<Repository> repositories = new ArrayList<>();
+        readTreeFromResponse(getResponseFromUrl(userRepositoriesUrl, HttpMethod.GET)).forEach(s -> {
+            if (s.findValue(FIELD_FORK).asText().equals(PROPERTY_FIELD_FALSE)) {
+                String repositoryName = s.findValue(FIELD_NAME).asText();
+                String owner = s.findValue(FIELD_OWNER_NAME).asText();
+                Repository repository = new Repository();
+                repository.setName(repositoryName);
+                repository.setOwner(owner);
+                String userBranchesUrl = "https://api.github.com/repos/" + userName + "/" + repositoryName
+                        + "/branches";
+                List<Branch> branches = new ArrayList<>();
+                readTreeFromResponse(getResponseFromUrl(userBranchesUrl, HttpMethod.GET)).forEach(e -> {
+                    Branch branch = new Branch();
+                    branch.setName(e.findValue(FIELD_NAME).asText());
+                    branch.setSha(e.findValue(FIELD_COMMIT_SHA).asText());
+                    branches.add(branch);
+                });
+                repository.setBranches(branches);
+                repositories.add(repository);
+            }
+        });
+        return repositories;
+    }
+
+    private ResponseEntity<String> getResponseFromUrl(String url, HttpMethod httpMethod) {
         try {
-            ResponseEntity<String> responseRepos = restTemplate.exchange(userRepositoriesUrl, HttpMethod.GET,
-                    new HttpEntity<>(headers), String.class);
-            readTreeFromResponse(responseRepos).forEach(s -> {
-                if (s.findValue(FIELD_FORK).asText().equals(PROPERTY_FIELD_FALSE)) {
-                    String repositoryName = s.findValue(FIELD_NAME).asText();
-                    String owner = s.findValue(FIELD_OWNER_NAME).asText();
-                    Repository repository = new Repository();
-                    repository.setName(repositoryName);
-                    repository.setOwner(owner);
-                    String userBranchesUrl = "https://api.github.com/repos/" + userName + "/" + repositoryName
-                            + "/branches";
-                    ResponseEntity<String> responseBranches = restTemplate.exchange(userBranchesUrl, HttpMethod.GET,
-                            new HttpEntity<>(headers), String.class);
-                    List<Branch> branches = new ArrayList<>();
-                    readTreeFromResponse(responseBranches).forEach(e -> {
-                        Branch branch = new Branch();
-                        branch.setName(e.findValue(FIELD_NAME).asText());
-                        branch.setSha(e.findValue(FIELD_COMMIT_SHA).asText());
-                        branches.add(branch);
-                    });
-                    repository.setBranches(branches);
-                    repositories.add(repository);
-                }
-            });
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            headers.setAccept(Collections.singletonList(MediaType.APPLICATION_JSON));
+            RestTemplate restTemplate = new RestTemplate();
+            return restTemplate.exchange(url, httpMethod, new HttpEntity<>(headers), String.class);
         } catch (HttpClientErrorException e) {
             throw new ResourceNotFoundException("Resourse is not found");
         }
-        return repositories;
     }
 
     private JsonNode readTreeFromResponse(ResponseEntity<String> response) {
