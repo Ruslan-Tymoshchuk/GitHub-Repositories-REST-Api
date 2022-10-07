@@ -1,0 +1,13 @@
+version: '3.9'
+
+services:
+  restapi: 
+    image: github-repositories
+    build: 
+      context: .
+    container_name: rest-api
+    ports: 
+      - "8080:8080"
+      
+networks:
+  git-hub-repo-net:
