@@ -36,8 +36,7 @@ public class RepositoryRestController {
 
     @GetMapping("/{user_name}")
     @ResponseStatus(HttpStatus.OK)
-    public List<Repository> findRepositoriesByUserName(@PathVariable("user_name") String userName, ObjectMapper mapper,
-            RestTemplate restTemplate) {
+    public List<Repository> findRepositoriesByUserName(@PathVariable("user_name") String userName) {
         String userRepositoriesUrl = "https://api.github.com/users/" + userName + "/repos";
         List<Repository> repositories = new ArrayList<>();
         readTreeFromResponse(getResponseFromUrl(userRepositoriesUrl, HttpMethod.GET)).forEach(s -> {
